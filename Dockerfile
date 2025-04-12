@@ -11,7 +11,7 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 # 设置默认 VNC 密码
 ENV VNC_PASSWORD=vncpassword
 
-# 安装 VNC、noVNC 相关依赖和 numpy
+# 安装 VNC 和 noVNC 相关依赖，包括 python3-numpy
 RUN apt-get update && apt-get install -y \
     xvfb \
     x11vnc \
@@ -20,16 +20,12 @@ RUN apt-get update && apt-get install -y \
     procps \
     iputils-ping \
     python3-numpy \
-    python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
 # 安装 noVNC
 RUN git clone https://github.com/novnc/noVNC.git /opt/novnc \
     && git clone https://github.com/novnc/websockify /opt/novnc/utils/websockify \
     && ln -s /opt/novnc/vnc.html /opt/novnc/index.html
-
-# 安装 numpy 以解决 websockify 警告
-RUN pip3 install numpy
 
 # 创建工作目录和数据目录
 WORKDIR /home/pwuser
