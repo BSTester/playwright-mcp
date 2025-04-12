@@ -96,6 +96,8 @@ echo "- Playwright Server: http://localhost:3000"\n\
 echo "- Playwright MCP: http://localhost:$MCP_PORT/sse"\n\
 echo "==================================="\n\
 \n\
+# 保持容器运行\n\
+tail -f /dev/null\n\
 ' > /home/pwuser/start-services.sh \
     && chmod +x /home/pwuser/start-services.sh
 
