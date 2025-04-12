@@ -1,5 +1,5 @@
-# 使用 Node.js 官方镜像作为基础
-FROM node:18-bullseye
+# 使用 Playwright 官方最新版本的 Docker 镜像
+FROM mcr.microsoft.com/playwright:latest
 
 # 避免交互式提示
 ENV DEBIAN_FRONTEND=noninteractive
@@ -11,24 +11,11 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 # 设置默认 VNC 密码
 ENV VNC_PASSWORD=vncpassword
 
-# 安装 X11 和 VNC 相关依赖
+# 安装 VNC 和 noVNC 相关依赖
 RUN apt-get update && apt-get install -y \
     xvfb \
     x11vnc \
-    x11-xkb-utils \
-    xfonts-100dpi \
-    xfonts-75dpi \
-    xfonts-scalable \
-    xfonts-cyrillic \
-    x11-apps \
     xauth \
-    fonts-ipafont-gothic \
-    fonts-wqy-zenhei \
-    fonts-thai-tlwg \
-    fonts-kacst \
-    fonts-symbola \
-    fonts-noto-color-emoji \
-    fonts-freefont-ttf \
     && rm -rf /var/lib/apt/lists/*
 
 # 安装 noVNC
@@ -39,14 +26,8 @@ RUN git clone https://github.com/novnc/noVNC.git /opt/novnc \
 # 创建工作目录
 WORKDIR /app
 
-# 安装 Playwright
-RUN npm init -y \
-    && npm install playwright@latest \
-    && npm install @playwright/mcp@latest
-
-# 安装浏览器（只安装 Chromium 以减少镜像大小）
-RUN npx playwright install chromium \
-    && npx playwright install-deps chromium
+# 安装 playwright-mcp
+RUN npm install @playwright/mcp@latest
 
 # 创建启动脚本
 RUN echo '#!/bin/bash\n\
