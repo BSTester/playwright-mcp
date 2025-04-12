@@ -1,5 +1,5 @@
-# 使用 Ubuntu 作为基础镜像
-FROM ubuntu:22.04
+# 使用 Node.js 官方镜像作为基础
+FROM node:18-bullseye
 
 # 避免交互式提示
 ENV DEBIAN_FRONTEND=noninteractive
@@ -11,16 +11,8 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 # 设置默认 VNC 密码
 ENV VNC_PASSWORD=vncpassword
 
-# 安装基础工具和依赖
+# 安装 X11 和 VNC 相关依赖
 RUN apt-get update && apt-get install -y \
-    wget \
-    git \
-    curl \
-    python3 \
-    python3-pip \
-    net-tools \
-    vim \
-    gnupg \
     xvfb \
     x11vnc \
     x11-xkb-utils \
@@ -37,58 +29,7 @@ RUN apt-get update && apt-get install -y \
     fonts-symbola \
     fonts-noto-color-emoji \
     fonts-freefont-ttf \
-    ca-certificates \
-    # WebKit 依赖
-    libwoff1 \
-    libopus0 \
-    libwebp7 \
-    libwebpdemux2 \
-    libenchant-2-2 \
-    libgudev-1.0-0 \
-    libsecret-1-0 \
-    libhyphen0 \
-    libgdk-pixbuf-2.0-0 \
-    libegl1 \
-    libnotify4 \
-    libxslt1.1 \
-    libevent-2.1-7 \
-    libgles2 \
-    libvpx7 \
-    libxcomposite1 \
-    libatk1.0-0 \
-    libatk-bridge2.0-0 \
-    libepoxy0 \
-    libgtk-3-0 \
-    libharfbuzz-icu0 \
-    # Firefox 依赖
-    libdbus-glib-1-2 \
-    libxt6 \
     && rm -rf /var/lib/apt/lists/*
-
-# 安装 NVM 和 Node.js
-ENV NVM_DIR /root/.nvm
-ENV NODE_VERSION 18.19.0
-
-RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash \
-    && . $NVM_DIR/nvm.sh \
-    && nvm install $NODE_VERSION \
-    && nvm alias default $NODE_VERSION \
-    && nvm use default
-
-# 添加 node 和 npm 到 PATH
-ENV PATH $NVM_DIR/versions/node/v$NODE_VERSION/bin:$PATH
-
-# 验证安装
-RUN node --version && npm --version
-
-# 安装 Playwright 和所有浏览器
-RUN npm init -y \
-    && npm install playwright@latest \
-    && npx playwright install \
-    && npx playwright install-deps
-
-# 安装 playwright-mcp
-RUN npm install @playwright/mcp@latest
 
 # 安装 noVNC
 RUN git clone https://github.com/novnc/noVNC.git /opt/novnc \
@@ -98,12 +39,17 @@ RUN git clone https://github.com/novnc/noVNC.git /opt/novnc \
 # 创建工作目录
 WORKDIR /app
 
+# 安装 Playwright
+RUN npm init -y \
+    && npm install playwright@latest \
+    && npm install @playwright/mcp@latest
+
+# 安装浏览器（只安装 Chromium 以减少镜像大小）
+RUN npx playwright install chromium \
+    && npx playwright install-deps chromium
+
 # 创建启动脚本
 RUN echo '#!/bin/bash\n\
-# 加载 NVM\n\
-export NVM_DIR="/root/.nvm"\n\
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"\n\
-\n\
 # 创建 VNC 密码文件\n\
 mkdir -p /root/.vnc\n\
 x11vnc -storepasswd $VNC_PASSWORD /root/.vnc/passwd\n\
@@ -131,7 +77,6 @@ tail -f /dev/null\n\
 
 # 设置环境变量
 ENV DISPLAY=:99
-ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
 # 暴露端口
 EXPOSE 6080 8931
