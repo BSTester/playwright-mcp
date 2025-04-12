@@ -1,75 +1,124 @@
-FROM mcr.microsoft.com/playwright:v1.51.1-noble
+# 使用 Ubuntu 作为基础镜像
+FROM ubuntu:22.04
 
-# Definir como usuário root para instalações
-USER root
-WORKDIR /app
-# Install system dependencies for browsers
+# 避免交互式提示
+ENV DEBIAN_FRONTEND=noninteractive
+
+# 设置时区
+ENV TZ=Asia/Shanghai
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+# 设置默认 VNC 密码
+ENV VNC_PASSWORD=vncpassword
+
+# 安装基础工具和依赖
 RUN apt-get update && apt-get install -y \
-    libnss3 \
-    libnspr4 \
-    libatk1.0-0 \
-    libatk-bridge2.0-0 \
-    libcups2 \
-    libdrm2 \
-    libdbus-1-3 \
-    libxkbcommon0 \
-    libxcomposite1 \
-    libxdamage1 \
-    libxfixes3 \
-    libxrandr2 \
-    libgbm1 \
-    libasound2 \
-    libpango-1.0-0 \
-    libpangocairo-1.0-0 \
-    libxcursor1 \
-    libgtk-3-0 \
+    wget \
+    git \
+    curl \
+    python3 \
+    python3-pip \
+    net-tools \
+    vim \
+    gnupg \
+    xvfb \
+    x11vnc \
+    x11-xkb-utils \
+    xfonts-100dpi \
+    xfonts-75dpi \
+    xfonts-scalable \
+    xfonts-cyrillic \
+    x11-apps \
+    xauth \
+    fonts-ipafont-gothic \
+    fonts-wqy-zenhei \
+    fonts-thai-tlwg \
+    fonts-kacst \
+    fonts-symbola \
     fonts-noto-color-emoji \
     fonts-freefont-ttf \
-    libfreetype6 \
-    libharfbuzz0b \
-    xvfb \
-    curl \
-    iputils-ping \
-    net-tools \
+    # WebKit 依赖
+    libwoff1 \
+    libopus0 \
+    libwebp7 \
+    libwebpdemux2 \
+    libenchant-2-2 \
+    libgudev-1.0-0 \
+    libsecret-1-0 \
+    libhyphen0 \
+    libgdk-pixbuf-2.0-0 \
+    libegl1 \
+    libnotify4 \
+    libxslt1.1 \
+    libevent-2.1-7 \
+    libgles2 \
+    libvpx7 \
+    libxcomposite1 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libepoxy0 \
+    libgtk-3-0 \
+    libharfbuzz-icu0 \
+    # Firefox 依赖
+    libdbus-glib-1-2 \
+    libxt6 \
     && rm -rf /var/lib/apt/lists/*
-# Copiar arquivos de configuração
-COPY package*.json tsconfig.json ./
 
-# Instalar a versão específica do Playwright mencionada no package.json
-RUN npm ci
+# 安装 Node.js
+RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+    && apt-get install -y nodejs \
+    && npm install -g npm@latest
 
-# Instalar explicitamente os navegadores necessários
-RUN npx playwright install chrome
-RUN npx playwright install chromium --with-deps 
-RUN npx playwright install-deps chromium
-RUN npx playwright install firefox
+# 安装 Playwright 和所有浏览器
+RUN npm init -y \
+    && npm install playwright@latest \
+    && npx playwright install \
+    && npx playwright install-deps
 
-# Copiar código-fonte
-COPY . .
+# 安装 playwright-mcp
+RUN npm install @playwright/mcp@latest
 
-# Compilar TypeScript
-RUN npm run build
+# 安装 noVNC
+RUN git clone https://github.com/novnc/noVNC.git /opt/novnc \
+    && git clone https://github.com/novnc/websockify /opt/novnc/utils/websockify \
+    && ln -s /opt/novnc/vnc.html /opt/novnc/index.html
 
-# Limpar dependências de desenvolvimento
-RUN npm prune --production
+# 创建工作目录
+WORKDIR /app
 
-# Adicionar permissões para os navegadores
-RUN chmod -R 755 /ms-playwright/
+# 创建启动脚本
+RUN echo '#!/bin/bash\n\
+# 创建 VNC 密码文件\n\
+mkdir -p /root/.vnc\n\
+x11vnc -storepasswd $VNC_PASSWORD /root/.vnc/passwd\n\
+\n\
+# 启动虚拟显示器\n\
+Xvfb :99 -screen 0 1280x720x24 &\n\
+sleep 1\n\
+\n\
+# 设置显示器\n\
+export DISPLAY=:99\n\
+\n\
+# 启动 VNC 服务（使用密码文件）\n\
+x11vnc -display :99 -forever -shared -rfbauth /root/.vnc/passwd &\n\
+\n\
+# 启动 noVNC\n\
+/opt/novnc/utils/novnc_proxy --vnc localhost:5900 --listen 6080 &\n\
+\n\
+# 启动 MCP 服务，使用传入的参数\n\
+npx @playwright/mcp@latest $@ &\n\
+\n\
+# 保持容器运行\n\
+tail -f /dev/null\n\
+' > /start-vnc.sh \
+    && chmod +x /start-vnc.sh
 
-# Configurar usuário não-root para segurança
-RUN groupadd -r mcpuser && \
-    useradd -r -g mcpuser -G audio,video mcpuser && \
-    mkdir -p /home/mcpuser/Downloads && \
-    chown -R mcpuser:mcpuser /home/mcpuser && \
-    chown -R mcpuser:mcpuser /app
-
-# Configurar variáveis de ambiente
-ENV NODE_ENV=production
+# 设置环境变量
+ENV DISPLAY=:99
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
-ENV DOCKER_CONTAINER=true
 
-# Entrypoint para o servidor MCP
-ENTRYPOINT ["node", "cli.js"]
+# 暴露端口
+EXPOSE 6080 8931
 
-# Argumentos padrão (headless por padrão)
-CMD ["--headless"]
+# 设置入口点
+ENTRYPOINT ["/start-vnc.sh"]
