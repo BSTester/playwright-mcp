@@ -65,15 +65,21 @@ RUN apt-get update && apt-get install -y \
     libxt6 \
     && rm -rf /var/lib/apt/lists/*
 
-# 安装 Node.js
-RUN apt-get update && \
-    apt-get install -y ca-certificates curl gnupg && \
-    mkdir -p /etc/apt/keyrings && \
-    curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
-    echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_18.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list && \
-    apt-get update && \
-    apt-get install -y nodejs && \
-    npm install -g npm@latest
+# 安装 NVM 和 Node.js
+ENV NVM_DIR /root/.nvm
+ENV NODE_VERSION 18.19.0
+
+RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash \
+    && . $NVM_DIR/nvm.sh \
+    && nvm install $NODE_VERSION \
+    && nvm alias default $NODE_VERSION \
+    && nvm use default
+
+# 添加 node 和 npm 到 PATH
+ENV PATH $NVM_DIR/versions/node/v$NODE_VERSION/bin:$PATH
+
+# 验证安装
+RUN node --version && npm --version
 
 # 安装 Playwright 和所有浏览器
 RUN npm init -y \
@@ -94,6 +100,10 @@ WORKDIR /app
 
 # 创建启动脚本
 RUN echo '#!/bin/bash\n\
+# 加载 NVM\n\
+export NVM_DIR="/root/.nvm"\n\
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"\n\
+\n\
 # 创建 VNC 密码文件\n\
 mkdir -p /root/.vnc\n\
 x11vnc -storepasswd $VNC_PASSWORD /root/.vnc/passwd\n\
