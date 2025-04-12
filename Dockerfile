@@ -1,5 +1,5 @@
-# 使用 Playwright 官方最新版本的 Docker 镜像
-FROM mcr.microsoft.com/playwright:latest
+# 使用指定的 Playwright Docker 镜像版本
+FROM mcr.microsoft.com/playwright:v1.51.0-noble
 
 # 避免交互式提示
 ENV DEBIAN_FRONTEND=noninteractive
@@ -11,7 +11,7 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 # 设置默认 VNC 密码
 ENV VNC_PASSWORD=vncpassword
 
-# 安装 VNC 和 noVNC 相关依赖
+# 安装 VNC、noVNC 相关依赖和 numpy
 RUN apt-get update && apt-get install -y \
     xvfb \
     x11vnc \
@@ -19,6 +19,8 @@ RUN apt-get update && apt-get install -y \
     net-tools \
     procps \
     iputils-ping \
+    python3-numpy \
+    python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
 # 安装 noVNC
@@ -26,23 +28,27 @@ RUN git clone https://github.com/novnc/noVNC.git /opt/novnc \
     && git clone https://github.com/novnc/websockify /opt/novnc/utils/websockify \
     && ln -s /opt/novnc/vnc.html /opt/novnc/index.html
 
+# 安装 numpy 以解决 websockify 警告
+RUN pip3 install numpy
+
 # 创建工作目录和数据目录
 WORKDIR /home/pwuser
 RUN mkdir -p /data/browser-data && chmod 777 /data/browser-data
 
-# 获取当前安装的 Playwright 版本并安装所有浏览器
-RUN PLAYWRIGHT_VERSION=$(npm list -g playwright | grep playwright | awk '{print $2}' | cut -d@ -f2 || echo "latest") \
-    && echo "Installing browsers for Playwright version: $PLAYWRIGHT_VERSION" \
-    && npx playwright@${PLAYWRIGHT_VERSION} install --with-deps
+# 确保所有浏览器都已安装并验证
+RUN PLAYWRIGHT_BROWSERS_PATH=/ms-playwright npx playwright@1.51.0 install --with-deps && \
+    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright npx playwright@1.51.0 install-deps && \
+    ls -la /ms-playwright && \
+    find /ms-playwright -type f -name chrome -o -name firefox -o -name webkit | grep -v node_modules
 
 # 安装 playwright-mcp
 RUN npm install @playwright/mcp@latest
 
 # 创建启动脚本
 RUN echo '#!/bin/bash\n\
-# 获取当前 Playwright 版本\n\
-PLAYWRIGHT_VERSION=$(npm list -g playwright | grep playwright | awk "{print \$2}" | cut -d@ -f2 || echo "latest")\n\
-echo "Using Playwright version: $PLAYWRIGHT_VERSION"\n\
+# 列出所有已安装的浏览器\n\
+echo "Listing installed browsers:"\n\
+find /ms-playwright -type f -name chrome -o -name firefox -o -name webkit | grep -v node_modules\n\
 \n\
 # 创建 VNC 密码文件\n\
 mkdir -p /home/pwuser/.vnc\n\
@@ -67,7 +73,7 @@ NOVNC_PID=$!\n\
 sleep 1\n\
 \n\
 # 启动 Playwright 服务器\n\
-npx -y playwright@$PLAYWRIGHT_VERSION run-server --port 3000 --host 0.0.0.0 &\n\
+PLAYWRIGHT_BROWSERS_PATH=/ms-playwright npx -y playwright@1.51.0 run-server --port 3000 --host 0.0.0.0 &\n\
 PLAYWRIGHT_SERVER_PID=$!\n\
 echo "Playwright Server started on port 3000 (PID: $PLAYWRIGHT_SERVER_PID)"\n\
 \n\
@@ -77,6 +83,9 @@ if [[ "$*" == *"--port"* ]]; then\n\
   PORT_INDEX=$(($(echo "$*" | tr " " "\n" | grep -n -- "--port" | cut -d: -f1) + 1))\n\
   MCP_PORT=$(echo "$*" | tr " " "\n" | sed -n "${PORT_INDEX}p")\n\
 fi\n\
+\n\
+# 配置 MCP 环境变量\n\
+export PLAYWRIGHT_BROWSERS_PATH=/ms-playwright\n\
 \n\
 # 启动 MCP 服务\n\
 echo "Starting Playwright MCP with arguments: $@"\n\
@@ -113,7 +122,7 @@ while true; do\n\
   \n\
   if ! ps -p $PLAYWRIGHT_SERVER_PID > /dev/null; then\n\
     echo "Playwright Server exited, restarting..."\n\
-    npx -y playwright@$PLAYWRIGHT_VERSION run-server --port 3000 --host 0.0.0.0 &\n\
+    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright npx -y playwright@1.51.0 run-server --port 3000 --host 0.0.0.0 &\n\
     PLAYWRIGHT_SERVER_PID=$!\n\
   fi\n\
   \n\
@@ -131,6 +140,7 @@ done\n\
 
 # 设置环境变量
 ENV DISPLAY=:99
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
 # 创建数据卷
 VOLUME ["/data/browser-data"]
