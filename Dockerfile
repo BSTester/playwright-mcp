@@ -26,16 +26,14 @@ RUN git clone https://github.com/novnc/noVNC.git /opt/novnc \
     && git clone https://github.com/novnc/websockify /opt/novnc/utils/websockify \
     && ln -s /opt/novnc/vnc.html /opt/novnc/index.html
 
-# 创建工作目录
+# 创建工作目录和数据目录
 WORKDIR /app
+RUN mkdir -p /data/browser-data && chmod 777 /data/browser-data
 
 # 安装 playwright-mcp 和所有浏览器
 RUN npm install @playwright/mcp@latest \
     && npx playwright install \
     && npx playwright install-deps
-
-# 列出安装的浏览器以便验证
-RUN find /ms-playwright -type f -name "*chrome*" | grep -v node_modules
 
 # 创建启动脚本
 RUN echo '#!/bin/bash\n\
@@ -58,20 +56,19 @@ sleep 1\n\
 /opt/novnc/utils/novnc_proxy --vnc localhost:5900 --listen 6080 &\n\
 sleep 1\n\
 \n\
-# 列出可用的浏览器路径\n\
-echo "Available browsers:"\n\
-find /ms-playwright -type f -name "chrome" -o -name "chrome.exe" -o -name "firefox" -o -name "msedge" | grep -v node_modules\n\
+# 打印启动命令\n\
+echo "Starting Playwright MCP with arguments: $@"\n\
 \n\
-# 启动 MCP 服务，使用传入的参数\n\
-# 默认使用 chromium 浏览器，除非在命令行参数中指定其他浏览器\n\
-if [[ "$*" != *"--browser"* ]]; then\n\
-    ARGS="--browser chromium $@"\n\
-else\n\
-    ARGS="$@"\n\
-fi\n\
+# 启动 MCP 服务，直接传递所有命令行参数\n\
+npx @playwright/mcp@latest $@ &\n\
+MCP_PID=$!\n\
 \n\
-echo "Starting MCP with arguments: $ARGS"\n\
-npx @playwright/mcp@latest $ARGS &\n\
+# 等待 MCP 进程\n\
+wait $MCP_PID || {\n\
+  echo "Playwright MCP exited with status $?"\n\
+  # 即使 MCP 进程结束，也保持容器运行\n\
+  tail -f /dev/null\n\
+}\n\
 \n\
 # 保持容器运行\n\
 tail -f /dev/null\n\
@@ -80,6 +77,9 @@ tail -f /dev/null\n\
 
 # 设置环境变量
 ENV DISPLAY=:99
+
+# 创建数据卷
+VOLUME ["/data/browser-data"]
 
 # 暴露端口
 EXPOSE 6080 8931
