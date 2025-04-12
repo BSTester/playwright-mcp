@@ -32,6 +32,7 @@ WORKDIR /home/pwuser
 RUN mkdir -p /data/browser-data && chmod 777 /data/browser-data
 
 # 确保所有浏览器都已安装并验证
+RUN npx playwright install
 RUN PLAYWRIGHT_BROWSERS_PATH=/ms-playwright npx playwright@1.51.0 install --with-deps && \
     PLAYWRIGHT_BROWSERS_PATH=/ms-playwright npx playwright@1.51.0 install-deps && \
     ls -la /ms-playwright && \
