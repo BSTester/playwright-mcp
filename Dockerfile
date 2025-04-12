@@ -96,42 +96,6 @@ echo "- Playwright Server: http://localhost:3000"\n\
 echo "- Playwright MCP: http://localhost:$MCP_PORT/sse"\n\
 echo "==================================="\n\
 \n\
-# 监控服务进程\n\
-while true; do\n\
-  # 检查服务状态\n\
-  if ! ps -p $XVFB_PID > /dev/null; then\n\
-    echo "Xvfb exited, restarting..."\n\
-    Xvfb :99 -screen 0 1280x720x24 -ac &\n\
-    XVFB_PID=$!\n\
-  fi\n\
-  \n\
-  if ! ps -p $VNC_PID > /dev/null; then\n\
-    echo "VNC server exited, restarting..."\n\
-    x11vnc -display :99 -forever -shared -rfbauth /home/pwuser/.vnc/passwd -rfbport 5900 -noxdamage &\n\
-    VNC_PID=$!\n\
-  fi\n\
-  \n\
-  if ! ps -p $NOVNC_PID > /dev/null; then\n\
-    echo "noVNC proxy exited, restarting..."\n\
-    /opt/novnc/utils/novnc_proxy --vnc localhost:5900 --listen 6080 &\n\
-    NOVNC_PID=$!\n\
-  fi\n\
-  \n\
-  if ! ps -p $PLAYWRIGHT_SERVER_PID > /dev/null; then\n\
-    echo "Playwright Server exited, restarting..."\n\
-    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright npx -y playwright@1.51.0 run-server --port 3000 --host 0.0.0.0 &\n\
-    PLAYWRIGHT_SERVER_PID=$!\n\
-  fi\n\
-  \n\
-  if ! ps -p $MCP_PID > /dev/null; then\n\
-    echo "MCP service exited, restarting..."\n\
-    npx @playwright/mcp@latest $@ &\n\
-    MCP_PID=$!\n\
-  fi\n\
-  \n\
-  echo "[$(date)] Services status: All services running"\n\
-  sleep 30\n\
-done\n\
 ' > /home/pwuser/start-services.sh \
     && chmod +x /home/pwuser/start-services.sh
 
