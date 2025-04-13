@@ -21,12 +21,11 @@ RUN apt-get update && apt-get install -y \
     iputils-ping \
     xkb-data \
     python3-numpy \
+    chromium-browser \
     && rm -rf /var/lib/apt/lists/*
 
-RUN apt-get update && apt-get install -y chromium && \
-    mkdir -p /opt/google/chrome && \
-    ln -s /usr/bin/chromium /opt/google/chrome/chrome && \
-    rm -rf /var/lib/apt/lists/*
+RUN mkdir -p /opt/google/chrome && \
+    ln -s /usr/bin/chromium-browser /opt/google/chrome/chrome
 
 # 安装 noVNC
 RUN git clone https://github.com/novnc/noVNC.git /opt/novnc \
