@@ -21,6 +21,8 @@ RUN apt-get update && apt-get install -y \
     iputils-ping \
     xkb-data \
     python3-numpy \
+    chromium \
+    && ln -s /usr/bin/chromium /opt/google/chrome/chrome \
     && rm -rf /var/lib/apt/lists/*
 
 # 安装 noVNC
