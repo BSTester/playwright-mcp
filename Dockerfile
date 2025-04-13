@@ -33,7 +33,7 @@ WORKDIR /home/pwuser
 RUN mkdir -p /data/browser-data && chmod 777 /data/browser-data
 
 # 确保所有浏览器都已安装并验证
-RUN npx playwright install --with-deps
+RUN npx playwright install --with-deps chromium
 RUN PLAYWRIGHT_BROWSERS_PATH=/ms-playwright npx playwright@1.51.0 install --with-deps && \
     PLAYWRIGHT_BROWSERS_PATH=/ms-playwright npx playwright@1.51.0 install-deps && \
     find /ms-playwright -type f -name chrome -o -name firefox -o -name webkit | grep -v node_modules
