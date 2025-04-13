@@ -48,7 +48,7 @@ mkdir -p /home/pwuser/.vnc\n\
 x11vnc -storepasswd $VNC_PASSWORD /home/pwuser/.vnc/passwd\n\
 \n\
 # 启动虚拟显示器，重定向错误以隐藏 xkbcomp 警告\n\
-Xvfb :99 -screen 0 1280x720x24 -ac 2>/dev/null &\n\
+Xvfb :99 -screen 0 1920x1080x24 -ac 2>/dev/null &\n\
 sleep 1\n\
 \n\
 # 设置显示器\n\
