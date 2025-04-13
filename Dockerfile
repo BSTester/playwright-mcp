@@ -23,8 +23,9 @@ RUN apt-get update && apt-get install -y \
     python3-numpy \
     && rm -rf /var/lib/apt/lists/*
 
-RUN apt-get update && apt-get install -y chromium-browser && \
-    ln -s /usr/bin/chromium-browser /opt/google/chrome/chrome && \
+RUN apt-get update && apt-get install -y chromium && \
+    mkdir -p /opt/google/chrome && \
+    ln -s /usr/bin/chromium /opt/google/chrome/chrome && \
     rm -rf /var/lib/apt/lists/*
 
 # 安装 noVNC
