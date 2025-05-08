@@ -81,14 +81,14 @@ RUN mkdir -p /data/browser-data && chmod 777 /data/browser-data
 # 设置 node_modules 权限
 RUN chown -R ${USERNAME}:${USERNAME} node_modules
 
-USER ${USERNAME}
-
 COPY --from=browser --chown=${USERNAME}:${USERNAME} ${PLAYWRIGHT_BROWSERS_PATH} ${PLAYWRIGHT_BROWSERS_PATH}
 COPY --chown=${USERNAME}:${USERNAME} cli.js package.json ./
 COPY --from=builder --chown=${USERNAME}:${USERNAME} /app/lib /app/lib
 COPY stealth-init.js /app/stealth-init.js
 COPY start-services.sh /app/start-services.sh
 RUN chmod +x /app/start-services.sh
+
+USER ${USERNAME}
 
 VOLUME ["/data/browser-data"]
 
