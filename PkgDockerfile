@@ -37,12 +37,8 @@ RUN git clone https://github.com/novnc/noVNC.git /opt/novnc \
 # 复制依赖文件
 COPY package.json package-lock.json ./
 
-# 安装依赖
+# 只装依赖，不装浏览器
 RUN npm ci --omit=dev
-
-# 安装 Playwright 浏览器依赖和 Chrome
-RUN npx playwright install-deps chromium
-RUN npx playwright install chrome
 
 # ------------------------------
 # Builder
@@ -50,10 +46,8 @@ RUN npx playwright install chrome
 FROM base AS builder
 
 RUN npm ci
-
 COPY *.json *.js *.ts ./
 COPY src src/
-
 RUN npm run build
 
 # ------------------------------
@@ -61,6 +55,7 @@ RUN npm run build
 # ------------------------------
 FROM base AS browser
 
+# 只在 browser 阶段安装浏览器
 RUN npx playwright install --no-shell chromium
 RUN npx playwright install chrome
 
@@ -96,4 +91,4 @@ VOLUME ["/data/browser-data"]
 
 EXPOSE 6080 8931 3000
 
-ENTRYPOINT ["/app/start-services.sh"]
+ENTRYPOINT ["/app/start-services.sh"] 
