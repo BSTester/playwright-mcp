@@ -22,4 +22,4 @@ node cli.js "$@" > /tmp/mcp_service.log 2>&1 &
 
 echo "All services should be starting. MCP logs in /tmp/mcp_service.log. VNC on port 5900, noVNC on 6080."
 # 保持容器运行
-tail -f /dev/null 
+tail -f /tmp/mcp_service.log
