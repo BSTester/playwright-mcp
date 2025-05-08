@@ -12,7 +12,7 @@ ENV TZ=Asia/Shanghai
 
 WORKDIR /app
 
-# 安装系统依赖（含noVNC/VNC相关）
+# 安装系统依赖（含noVNC/VNC相关和中文支持）
 RUN apt-get update && apt-get install -y \
     xvfb \
     x11vnc \
@@ -24,7 +24,16 @@ RUN apt-get update && apt-get install -y \
     python3-numpy \
     git \
     curl \
+    locales \
+    fonts-noto-cjk \
+    fonts-wqy-zenhei \
     && rm -rf /var/lib/apt/lists/*
+
+# 设置中文 locale
+RUN locale-gen zh_CN.UTF-8
+ENV LANG=zh_CN.UTF-8
+ENV LANGUAGE=zh_CN:zh
+ENV LC_ALL=zh_CN.UTF-8
 
 # 设置时区
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
