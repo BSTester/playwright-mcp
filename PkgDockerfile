@@ -10,7 +10,6 @@ ENV PLAYWRIGHT_BROWSERS_PATH=${PLAYWRIGHT_BROWSERS_PATH}
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=Asia/Shanghai
 
-# Set the working directory
 WORKDIR /app
 
 # 安装系统依赖（含noVNC/VNC相关）
@@ -35,23 +34,22 @@ RUN git clone https://github.com/novnc/noVNC.git /opt/novnc \
     && git clone https://github.com/novnc/websockify /opt/novnc/utils/websockify \
     && ln -s /opt/novnc/vnc.html /opt/novnc/index.html
 
+# 复制依赖文件
+COPY package.json package-lock.json ./
+
 # 安装依赖
-RUN --mount=type=cache,target=/root/.npm,sharing=locked,id=npm-cache \
-    --mount=type=bind,source=package.json,target=package.json \
-    --mount=type=bind,source=package-lock.json,target=package-lock.json \
-  npm ci --omit=dev && \
-  npx -y playwright install-deps chromium && \
-  npx -y playwright install chrome
+RUN npm ci --omit=dev
+
+# 安装 Playwright 浏览器依赖和 Chrome
+RUN npx playwright install-deps chromium
+RUN npx playwright install chrome
 
 # ------------------------------
 # Builder
 # ------------------------------
 FROM base AS builder
 
-RUN --mount=type=cache,target=/root/.npm,sharing=locked,id=npm-cache \
-    --mount=type=bind,source=package.json,target=package.json \
-    --mount=type=bind,source=package-lock.json,target=package-lock.json \
-  npm ci
+RUN npm ci
 
 COPY *.json *.js *.ts ./
 COPY src src/
@@ -63,8 +61,8 @@ RUN npm run build
 # ------------------------------
 FROM base AS browser
 
-RUN npx -y playwright install --no-shell chromium
-RUN npx -y playwright install chrome
+RUN npx playwright install --no-shell chromium
+RUN npx playwright install chrome
 
 # ------------------------------
 # Runtime
@@ -88,6 +86,8 @@ COPY --chown=${USERNAME}:${USERNAME} cli.js package.json ./
 COPY --from=builder --chown=${USERNAME}:${USERNAME} /app/lib /app/lib
 COPY stealth-init.js /app/stealth-init.js
 COPY start-services.sh /app/start-services.sh
+
+# 必须在切换用户前赋予执行权限
 RUN chmod +x /app/start-services.sh
 
 USER ${USERNAME}
@@ -96,4 +96,4 @@ VOLUME ["/data/browser-data"]
 
 EXPOSE 6080 8931 3000
 
-ENTRYPOINT ["/app/start-services.sh"] 
+ENTRYPOINT ["/app/start-services.sh"]
