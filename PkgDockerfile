@@ -12,7 +12,7 @@ ENV TZ=Asia/Shanghai
 
 WORKDIR /app
 
-# 安装系统依赖（含noVNC/VNC相关和中文支持）
+# 安装系统依赖（含noVNC/VNC相关、中文支持和完整桌面环境）
 RUN apt-get update && apt-get install -y \
     xvfb \
     x11vnc \
@@ -27,6 +27,8 @@ RUN apt-get update && apt-get install -y \
     locales \
     fonts-noto-cjk \
     fonts-wqy-zenhei \
+    xfce4 xfce4-terminal \
+    dbus-x11 \
     && rm -rf /var/lib/apt/lists/*
 
 # 设置中文 locale
