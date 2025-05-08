@@ -70,7 +70,7 @@ RUN npx -y playwright-core install --no-shell chromium
 FROM base
 
 ARG PLAYWRIGHT_BROWSERS_PATH
-ARG USERNAME=node
+ENV USERNAME=node
 ENV NODE_ENV=production
 ENV VNC_PASSWORD=vncpassword
 ENV DISPLAY=:99
