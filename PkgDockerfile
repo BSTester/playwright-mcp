@@ -58,7 +58,7 @@ FROM base AS browser
 # 重新复制依赖文件并安装依赖，确保 playwright CLI 可用
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
-
+RUN npm install playwright
 RUN npx playwright install --no-shell chromium
 RUN npx playwright install chrome
 
