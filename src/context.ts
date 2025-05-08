@@ -29,7 +29,16 @@ import type { ImageContent, TextContent } from '@modelcontextprotocol/sdk/types.
 import type { ModalState, Tool, ToolActionResult } from './tools/tool.js';
 import type { Config } from '../config.js';
 import { outputFile } from './config.js';
-
+const useStealth = process.argv.includes('--stealth');
+let stealthScript = '';
+if (useStealth) {
+  try {
+    stealthScript = fs.readFileSync('/app/stealth-init.js', 'utf8');
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error('Stealth script not found:', e);
+  }
+}
 type PendingAction = {
   dialogShown: ManualPromise<void>;
 };
@@ -311,6 +320,17 @@ ${code.join('\n')}
       this._browser = context.browser;
       this._browserContext = context.browserContext;
       await this._setupRequestInterception(this._browserContext);
+      // === Stealth 脚本注入开始 ===
+      if (useStealth && stealthScript) {
+        // 监听新页面
+        this._browserContext.on('page', page => {
+          void page.addInitScript(stealthScript);
+        });
+        // 已有页面也注入
+        for (const page of this._browserContext.pages())
+          void page.addInitScript(stealthScript);
+      }
+      // === Stealth 脚本注入结束 ===
       for (const page of this._browserContext.pages())
         this._onPageCreated(page);
       this._browserContext.on('page', page => this._onPageCreated(page));
