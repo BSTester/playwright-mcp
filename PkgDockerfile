@@ -55,7 +55,10 @@ RUN npm run build
 # ------------------------------
 FROM base AS browser
 
-# 只在 browser 阶段安装浏览器
+# 重新复制依赖文件并安装依赖，确保 playwright CLI 可用
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+
 RUN npx playwright install --no-shell chromium
 RUN npx playwright install chrome
 
@@ -65,7 +68,7 @@ RUN npx playwright install chrome
 FROM base
 
 ARG PLAYWRIGHT_BROWSERS_PATH
-ENV USERNAME=node
+ENV USERNAME=root
 ENV NODE_ENV=production
 ENV VNC_PASSWORD=vncpassword
 ENV DISPLAY=:99
@@ -85,7 +88,7 @@ COPY start-services.sh /app/start-services.sh
 # 必须在切换用户前赋予执行权限
 RUN chmod +x /app/start-services.sh
 
-USER ${USERNAME}
+# USER ${USERNAME}  # 改为root，直接注释或删除这一行
 
 VOLUME ["/data/browser-data"]
 
