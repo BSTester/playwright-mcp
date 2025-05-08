@@ -40,7 +40,8 @@ RUN --mount=type=cache,target=/root/.npm,sharing=locked,id=npm-cache \
     --mount=type=bind,source=package.json,target=package.json \
     --mount=type=bind,source=package-lock.json,target=package-lock.json \
   npm ci --omit=dev && \
-  npx -y playwright-core install-deps chromium
+  npx -y playwright-core install-deps chromium && \
+  npx -y playwright install chrome
 
 # ------------------------------
 # Builder
@@ -63,6 +64,7 @@ RUN npm run build
 FROM base AS browser
 
 RUN npx -y playwright-core install --no-shell chromium
+RUN npx -y playwright install chrome
 
 # ------------------------------
 # Runtime
