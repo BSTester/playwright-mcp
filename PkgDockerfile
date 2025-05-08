@@ -1,0 +1,97 @@
+ARG PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+
+# ------------------------------
+# Base
+# ------------------------------
+FROM node:22-bookworm-slim AS base
+
+ARG PLAYWRIGHT_BROWSERS_PATH
+ENV PLAYWRIGHT_BROWSERS_PATH=${PLAYWRIGHT_BROWSERS_PATH}
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=Asia/Shanghai
+
+# Set the working directory
+WORKDIR /app
+
+# 安装系统依赖（含noVNC/VNC相关）
+RUN apt-get update && apt-get install -y \
+    xvfb \
+    x11vnc \
+    xauth \
+    net-tools \
+    procps \
+    iputils-ping \
+    xkb-data \
+    python3-numpy \
+    git \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# 设置时区
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+# 安装 noVNC
+RUN git clone https://github.com/novnc/noVNC.git /opt/novnc \
+    && git clone https://github.com/novnc/websockify /opt/novnc/utils/websockify \
+    && ln -s /opt/novnc/vnc.html /opt/novnc/index.html
+
+# 安装依赖
+RUN --mount=type=cache,target=/root/.npm,sharing=locked,id=npm-cache \
+    --mount=type=bind,source=package.json,target=package.json \
+    --mount=type=bind,source=package-lock.json,target=package-lock.json \
+  npm ci --omit=dev && \
+  npx -y playwright-core install-deps chromium
+
+# ------------------------------
+# Builder
+# ------------------------------
+FROM base AS builder
+
+RUN --mount=type=cache,target=/root/.npm,sharing=locked,id=npm-cache \
+    --mount=type=bind,source=package.json,target=package.json \
+    --mount=type=bind,source=package-lock.json,target=package-lock.json \
+  npm ci
+
+COPY *.json *.js *.ts ./
+COPY src src/
+
+RUN npm run build
+
+# ------------------------------
+# Browser
+# ------------------------------
+FROM base AS browser
+
+RUN npx -y playwright-core install --no-shell chromium
+
+# ------------------------------
+# Runtime
+# ------------------------------
+FROM base
+
+ARG PLAYWRIGHT_BROWSERS_PATH
+ARG USERNAME=node
+ENV NODE_ENV=production
+ENV VNC_PASSWORD=vncpassword
+ENV DISPLAY=:99
+
+# 创建数据目录
+RUN mkdir -p /data/browser-data && chmod 777 /data/browser-data
+
+# 设置 node_modules 权限
+RUN chown -R ${USERNAME}:${USERNAME} node_modules
+
+USER ${USERNAME}
+
+COPY --from=browser --chown=${USERNAME}:${USERNAME} ${PLAYWRIGHT_BROWSERS_PATH} ${PLAYWRIGHT_BROWSERS_PATH}
+COPY --chown=${USERNAME}:${USERNAME} cli.js package.json ./
+COPY --from=builder --chown=${USERNAME}:${USERNAME} /app/lib /app/lib
+COPY stealth-init.js /app/stealth-init.js
+COPY start-services.sh /app/start-services.sh
+RUN chmod +x /app/start-services.sh
+
+VOLUME ["/data/browser-data"]
+
+EXPOSE 6080 8931 3000
+
+ENTRYPOINT ["/app/start-services.sh"] 
